@@ -1,0 +1,78 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+        node-version: ['16.x', '18.x']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    # Python Environment Setup
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 nose2 coverage
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    # Node.js Environment Setup
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+    
+    - name: Install Node.js dependencies
+      run: |
+        npm install
+        npm install --save-dev eslint jest
+    
+    # Python Linting with flake8
+    - name: Lint with flake8
+      run: |
+        echo "Running flake8 linting..."
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    # Python Testing with nosetests
+    - name: Run Python tests with nosetests
+      run: |
+        echo "Running nosetests..."
+        nose2 -v --with-coverage tests/
+        echo "Python tests completed successfully"
+    
+    # JavaScript/Node.js Linting with ESLint
+    - name: Lint with ESLint
+      run: |
+        echo "Running ESLint..."
+        npx eslint src/ --format json || true
+        npx eslint src/ --format stylish
+    
+    # JavaScript Testing with Jest
+    - name: Run JavaScript tests with Jest
+      run: |
+        echo "Running Jest tests..."
+        npm test -- --coverage
+        echo "JavaScript tests completed successfully"
+    
+    # Build Summary
+    - name: Build Summary
+      run: |
+        echo "All checks completed successfully!"
+        echo "Linting: flake8 ✓, ESLint ✓"
+        echo "Testing: nosetests ✓, Jest ✓"
